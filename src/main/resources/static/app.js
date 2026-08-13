@@ -1,350 +1,362 @@
-/* =========================================================
- * BILLDESK PAYMENT PAGE
- * ========================================================= */
+const paymentForm =
+    document.getElementById("paymentForm");
 
-const PAYMENT_CONFIG = {
-    clientCode: "Amazon",
-    merchantCode: "Merch1",
-    merchantReference: "A123401",
-    currency: "INR",
-    subMerchant: "SUB123",
-    clientAccount: "22222",
-    bankId: "YBM",
-    returnUrl: window.location.origin + "/"
-};
+const paymentResult =
+    document.getElementById("paymentResult");
 
-const paymentForm = document.getElementById("paymentForm");
-const paymentResult = document.getElementById("paymentResult");
-const payButton = document.getElementById("payButton");
-const transactionAmountInput = document.getElementById("fldTxnAmt");
-const serviceAmountInput = document.getElementById("fldTxnScAmt");
+const payButton =
+    document.getElementById("payButton");
 
-paymentForm.addEventListener("submit", async function (event) {
-    event.preventDefault();
+const transactionAmountInput =
+    document.getElementById("fldTxnAmt");
 
-    payButton.disabled = true;
-    payButton.textContent = "Sending to Bank...";
-    paymentResult.innerHTML = "";
-    paymentResult.hidden = true;
+const serviceAmountInput =
+    document.getElementById("fldTxnScAmt");
 
-    /*
-     * Open the Bank Simulator synchronously from the click.
-     * This preserves window.opener for the final redirect.
-     */
-    const bankWindow = window.open("about:blank", "_blank");
+const summaryAmount =
+    document.getElementById("summaryAmount");
 
-    if (!bankWindow) {
-        showPaymentError(
-            "Unable to open Bank Simulator",
-            "Please allow pop-ups for this site and try again."
-        );
-        resetPayButton();
-        return;
-    }
+const summaryServiceAmount =
+    document.getElementById("summaryServiceAmount");
 
-    const transactionAmount = Number(transactionAmountInput.value);
-    const serviceAmount = Number(serviceAmountInput.value);
 
-    if (!Number.isFinite(transactionAmount) || transactionAmount <= 0) {
-        bankWindow.close();
-        showPaymentError(
-            "Invalid Transaction Amount",
-            "Transaction amount must be greater than zero."
-        );
-        resetPayButton();
-        return;
-    }
+/*
+ * =========================================================
+ * AMOUNT SUMMARY
+ * =========================================================
+ */
 
-    if (!Number.isFinite(serviceAmount) || serviceAmount < 0) {
-        bankWindow.close();
-        showPaymentError(
-            "Invalid Service Amount",
-            "Service amount cannot be negative."
-        );
-        resetPayButton();
-        return;
-    }
+function updatePaymentSummary() {
 
-    /* Bank-side business rule: service amount cannot exceed transaction amount. */
-    if (serviceAmount > transactionAmount) {
-        bankWindow.close();
-        showPaymentError(
-            "Invalid Service Amount",
-            "Service amount cannot be greater than the transaction amount."
-        );
-        resetPayButton();
-        return;
-    }
+    const transactionAmount =
+        transactionAmountInput.value;
 
-    const paymentRequest = {
-        fldClientCode: PAYMENT_CONFIG.clientCode,
-        fldMerchCode: PAYMENT_CONFIG.merchantCode,
-        fldTxnCurr: PAYMENT_CONFIG.currency,
-        fldTxnAmt: transactionAmount,
-        fldTxnScAmt: serviceAmount,
-        fldMerchRefNbr: PAYMENT_CONFIG.merchantReference,
-        fldDatTimeTxn: getCurrentDateTime(),
+    const serviceAmount =
+        serviceAmountInput.value;
 
-        fldRef1: "",
-        fldRef2: PAYMENT_CONFIG.subMerchant,
-        fldRef3: "",
-        fldRef4: "",
-        fldRef5: "",
-        fldRef6: "",
-        fldRef7: "",
-        fldRef8: "",
-        fldRef9: "",
-        fldRef10: "",
-        fldRef11: "",
-        fldDate1: "",
-        fldDate2: "",
+    summaryAmount.textContent =
+        formatAmount(transactionAmount);
 
-        ru: PAYMENT_CONFIG.returnUrl,
-        fldClientAcctNo: PAYMENT_CONFIG.clientAccount,
-        bankid: PAYMENT_CONFIG.bankId
-    };
+    summaryServiceAmount.textContent =
+        formatAmount(serviceAmount);
+}
 
-    console.log("Sending payment request:", paymentRequest);
 
-    try {
-        const response = await fetch("/gateway/payment", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(paymentRequest)
-        });
+transactionAmountInput.addEventListener(
+    "input",
+    updatePaymentSummary
+);
 
-        if (!response.ok) {
-            let serverMessage = `HTTP ${response.status}`;
+serviceAmountInput.addEventListener(
+    "input",
+    updatePaymentSummary
+);
 
-            try {
-                const errorBody = await response.text();
-                if (errorBody) {
-                    serverMessage = errorBody;
-                }
-            } catch (ignored) {
-                // Keep HTTP status if response body cannot be read.
-            }
 
-            throw new Error(
-                `Unable to send payment to bank. ${serverMessage}`
-            );
-        }
+/*
+ * =========================================================
+ * PAYMENT SUBMISSION
+ * =========================================================
+ */
 
-        const result = await response.json();
+paymentForm.addEventListener(
+    "submit",
+    async function (event) {
 
-        console.log("Gateway response:", result);
+        event.preventDefault();
+
+        payButton.disabled = true;
+
+        payButton.textContent =
+            "Sending to Bank...";
+
+        paymentResult.innerHTML = "";
+
+        paymentResult.hidden = true;
+
 
         /*
-         * Gateway has delivered the transaction to Bank RECEIVE.
-         * The bank page can now read /bank/pending.
+         * Build PaymentRequest from the values
+         * entered on the BillDesk UI.
          */
-        if (bankWindow && !bankWindow.closed) {
-            bankWindow.location.href = "/bank/simulator";
-        }
+        const paymentRequest = {
 
-        displayPendingResult(result);
+            fldClientCode:
+            document.getElementById(
+                "fldClientCode"
+            ).value,
 
-    } catch (error) {
-        console.error("Payment submission error:", error);
+            fldMerchCode:
+            document.getElementById(
+                "fldMerchCode"
+            ).value,
 
-        if (bankWindow && !bankWindow.closed) {
-            bankWindow.close();
-        }
+            fldTxnCurr:
+            document.getElementById(
+                "fldTxnCurr"
+            ).value,
 
-        showPaymentError(
-            "Payment Submission Failed",
-            error.message
-        );
-    } finally {
-        resetPayButton();
-    }
-});
+            fldTxnAmt:
+                Number(
+                    transactionAmountInput.value
+                ),
 
-function displayPendingResult(result) {
-    paymentResult.hidden = false;
+            fldTxnScAmt:
+                Number(
+                    serviceAmountInput.value
+                ),
 
-    const request = result.request || result;
+            fldMerchRefNbr:
+            document.getElementById(
+                "fldMerchRefNbr"
+            ).value,
 
-    paymentResult.innerHTML = `
-        <div class="payment-pending">
-            <h3>Payment Sent to Bank</h3>
+            fldDatTimeTxn:
+                getCurrentDateTime(),
 
-            <p>
-                The transaction has been received by the Bank Simulator
-                and is awaiting processing.
-            </p>
+            fldRef1: "",
 
-            <div class="pending-details">
-                <p>
-                    <strong>Merchant:</strong>
-                    ${escapeHtml(request.fldMerchCode || "N/A")}
-                </p>
+            fldRef2:
+            document.getElementById(
+                "fldRef2"
+            ).value,
 
-                <p>
-                    <strong>Amount:</strong>
-                    ₹${formatAmount(request.fldTxnAmt)}
-                </p>
+            fldRef3: "",
+            fldRef4: "",
+            fldRef5: "",
+            fldRef6: "",
+            fldRef7: "",
+            fldRef8: "",
+            fldRef9: "",
+            fldRef10: "",
+            fldRef11: "",
 
-                <p>
-                    <strong>Reference:</strong>
-                    ${escapeHtml(request.fldMerchRefNbr || "N/A")}
-                </p>
+            fldDate1: "",
+            fldDate2: "",
 
-                <p>
-                    <strong>Status:</strong>
-                    Waiting for bank decision
-                </p>
-            </div>
+            ru:
+            document.getElementById(
+                "ru"
+            ).value,
 
-            <p class="pending-message">
-                Select the required test scenario in the Bank Simulator.
-            </p>
-        </div>
-    `;
-}
+            fldClientAcctNo:
+            document.getElementById(
+                "fldClientAcctNo"
+            ).value
+        };
 
-function showPaymentError(title, message) {
-    paymentResult.hidden = false;
 
-    paymentResult.innerHTML = `
-        <div class="payment-error">
-            <h3>${escapeHtml(title)}</h3>
-            <p>${escapeHtml(message)}</p>
-        </div>
-    `;
-}
+        try {
 
-/* =========================================================
- * BILLDESK RETURN RESULT
- * ========================================================= */
+            /*
+             * =================================================
+             * SEND PAYMENT TO GATEWAY
+             * =================================================
+             */
 
-function handleBankReturn() {
-    const params = new URLSearchParams(window.location.search);
+            const response =
+                await fetch(
+                    "/gateway/payment",
+                    {
+                        method: "POST",
 
-    const status = params.get("status");
-    const fldVerify = params.get("fldVerify");
+                        headers: {
+                            "Content-Type":
+                                "application/json"
+                        },
 
-    if (status !== "SUCCESS" || fldVerify !== "V") {
-        return;
-    }
+                        body:
+                            JSON.stringify(
+                                paymentRequest
+                            )
+                    }
+                );
 
-    showFinalSuccessPopup({
-        transactionAmount: params.get("fldTxnAmt"),
-        serviceAmount: params.get("fldTxnScAmt"),
-        merchantReference: params.get("fldMerchRefNbr"),
-        bankReference: params.get("bankRefNo")
-    });
 
-    window.history.replaceState(
-        {},
-        document.title,
-        window.location.pathname
-    );
-}
+            /*
+             * Read JSON regardless of HTTP status.
+             */
+            const result =
+                await response.json();
 
-document.addEventListener("DOMContentLoaded", handleBankReturn);
 
-function showFinalSuccessPopup(data) {
-    const existing = document.getElementById("finalSuccessModal");
-    if (existing) {
-        existing.remove();
-    }
+            /*
+             * =================================================
+             * GATEWAY ERROR
+             * =================================================
+             */
 
-    const modal = document.createElement("div");
-    modal.id = "finalSuccessModal";
+            if (!response.ok) {
 
-    modal.innerHTML = `
-        <div class="success-modal-overlay">
-            <div class="success-modal">
-                <div class="success-icon">✓</div>
+                console.error("Gateway response: ", result);
+                throw new Error(
+                    result.message ||
+                    `Payment initiation failed. HTTP ${response.status}`
+                );
+            }
 
-                <h2>Payment Successful</h2>
 
-                <p class="success-subtitle">
-                    Your payment has been successfully processed and verified.
-                </p>
+            /*
+             * =================================================
+             * BANK REDIRECTION
+             * =================================================
+             *
+             * Gateway has now:
+             *
+             * 1. Built EPI
+             * 2. Generated checksum
+             * 3. Encrypted encdata
+             * 4. Delivered transaction to Bank
+             * 5. Stored it as PENDING
+             *
+             * Gateway response contains:
+             *
+             * bankUrl
+             * pid
+             * status
+             * request
+             *
+             * The browser now navigates to the Bank.
+             */
 
-                <div class="success-details">
-                    <div>
-                        <span>Transaction Amount</span>
-                        <strong>₹${formatAmount(data.transactionAmount)}</strong>
-                    </div>
+            if (!result.bankUrl) {
 
-                    <div>
-                        <span>Service Amount</span>
-                        <strong>₹${formatAmount(data.serviceAmount)}</strong>
-                    </div>
+                throw new Error(
+                    "Bank URL was not returned by Gateway"
+                );
+            }
 
-                    <div>
-                        <span>Total Debit</span>
-                        <strong>₹${formatAmount(
-        (Number(data.transactionAmount) || 0) +
-        (Number(data.serviceAmount) || 0)
-    )}</strong>
-                    </div>
 
-                    <div>
-                        <span>Merchant Reference</span>
-                        <strong>${escapeHtml(data.merchantReference || "N/A")}</strong>
-                    </div>
+            /*
+             * Actual browser redirection.
+             */
+            window.location.href =
+                result.bankUrl;
 
-                    <div>
-                        <span>Bank Reference</span>
-                        <strong>${escapeHtml(data.bankReference || "N/A")}</strong>
-                    </div>
+
+        } catch (error) {
+
+            console.error(
+                "Payment submission error:",
+                error
+            );
+
+
+            paymentResult.hidden = false;
+
+            paymentResult.innerHTML = `
+                <div class="payment-error">
+
+                    <h3>
+                        Payment Submission Failed
+                    </h3>
+
+                    <p>
+                        ${escapeHtml(
+                error.message
+            )}
+                    </p>
+
                 </div>
+            `;
 
-                <div class="verification-badge">
-                    ✓ Dual Verification Completed
-                </div>
 
-                <button type="button" onclick="closeFinalSuccessPopup()">
-                    Done
-                </button>
-            </div>
-        </div>
-    `;
+            payButton.disabled = false;
 
-    document.body.appendChild(modal);
-}
-
-function closeFinalSuccessPopup() {
-    const modal = document.getElementById("finalSuccessModal");
-    if (modal) {
-        modal.remove();
+            payButton.textContent =
+                "Pay";
+        }
     }
-}
+);
+
+
+/*
+ * =========================================================
+ * DATE / TIME
+ * =========================================================
+ *
+ * Spring Boot LocalDateTime expects:
+ *
+ * yyyy-MM-ddTHH:mm:ss
+ *
+ * Example:
+ * 2026-08-13T11:03:04
+ */
 
 function getCurrentDateTime() {
-    return new Date().toISOString().slice(0, 19);
+
+    const now = new Date();
+
+    const year =
+        now.getFullYear();
+
+    const month =
+        String(now.getMonth() + 1)
+            .padStart(2, "0");
+
+    const day =
+        String(now.getDate())
+            .padStart(2, "0");
+
+    const hours =
+        String(now.getHours())
+            .padStart(2, "0");
+
+    const minutes =
+        String(now.getMinutes())
+            .padStart(2, "0");
+
+    const seconds =
+        String(now.getSeconds())
+            .padStart(2, "0");
+
+    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
 }
+
+
+/*
+ * =========================================================
+ * FORMAT AMOUNT
+ * =========================================================
+ */
 
 function formatAmount(amount) {
-    if (amount === null || amount === undefined || amount === "") {
-        return "0.00";
+
+    if (
+        amount === null ||
+        amount === undefined ||
+        amount === "" ||
+        Number.isNaN(Number(amount))
+    ) {
+
+        return "₹0.00";
     }
 
-    const numericAmount = Number(amount);
 
-    if (Number.isNaN(numericAmount)) {
-        return "0.00";
-    }
-
-    return numericAmount.toLocaleString("en-IN", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-    });
+    return "₹" +
+        Number(amount).toLocaleString(
+            "en-IN",
+            {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }
+        );
 }
+
+
+/*
+ * =========================================================
+ * HTML ESCAPING
+ * =========================================================
+ */
 
 function escapeHtml(value) {
-    const div = document.createElement("div");
-    div.textContent = String(value ?? "");
-    return div.innerHTML;
-}
 
-function resetPayButton() {
-    payButton.disabled = false;
-    payButton.textContent = "Pay";
+    const div =
+        document.createElement("div");
+
+    div.textContent =
+        String(value ?? "");
+
+    return div.innerHTML;
 }
