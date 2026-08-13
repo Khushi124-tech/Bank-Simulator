@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0">
+
+    <title>BillDesk Payment Gateway</title>
+
+    <link
+            rel="stylesheet"
+            href="/style.css">
+
+</head>
+
+
+<body>
+
+<header class="top-bar">
+
+    <div class="brand">
+
+        <div class="brand-mark">
+            BD
+        </div>
+
+        <div>
+
+            <h1>
+                BillDesk Payment Gateway
+            </h1>
+
+            <p>
+                Payment Gateway Simulator
+            </p>
+
+        </div>
+
+    </div>
+
+</header>
+
+
+<main class="page-container">
+
+    <section class="payment-card">
+
+        <div class="card-header">
+
+            <div>
+
+                <h2>
+                    Make a Payment
+                </h2>
+
+                <p>
+                    Enter the transaction details to continue.
+                </p>
+
+            </div>
+
+        </div>
+
+
+        <form
+                id="paymentForm"
+                action="#"
+                method="post">
+
+            <div class="form-section">
+
+                <h3>
+                    Transaction Details
+                </h3>
+
+
+                <div class="form-grid">
+
+
+                    <!-- Client Code -->
+
+                    <div class="form-group">
+
+                        <label for="fldClientCode">
+                            Client Code
+                        </label>
+
+                        <select
+                                id="fldClientCode"
+                                name="fldClientCode"
+                                required>
+
+                            <option value="Amazon">
+                                Amazon
+                            </option>
+
+                        </select>
+
+                    </div>
+
+
+                    <!-- Merchant Code -->
+
+                    <div class="form-group">
+
+                        <label for="fldMerchCode">
+                            Merchant Code
+                        </label>
+
+                        <select
+                                id="fldMerchCode"
+                                name="fldMerchCode"
+                                required>
+
+                            <option value="Merch1">
+                                Merch1
+                            </option>
+
+                        </select>
+
+                    </div>
+
+
+                    <!-- Currency -->
+
+                    <div class="form-group">
+
+                        <label for="fldTxnCurr">
+                            Currency
+                        </label>
+
+                        <select
+                                id="fldTxnCurr"
+                                name="fldTxnCurr"
+                                required>
+
+                            <option value="INR">
+                                INR
+                            </option>
+
+                        </select>
+
+                    </div>
+
+
+                    <!-- Transaction Amount -->
+
+                    <div class="form-group">
+
+                        <label for="fldTxnAmt">
+                            Transaction Amount
+                        </label>
+
+                        <input
+                                type="number"
+                                id="fldTxnAmt"
+                                name="fldTxnAmt"
+                                placeholder="Enter transaction amount"
+                                step="0.01"
+                                min="0.01"
+                                required>
+
+                    </div>
+
+
+                    <!-- Service Amount -->
+
+                    <div class="form-group">
+
+                        <label for="fldTxnScAmt">
+                            Service Amount
+                        </label>
+
+                        <input
+                                type="number"
+                                id="fldTxnScAmt"
+                                name="fldTxnScAmt"
+                                placeholder="Enter service amount"
+                                step="0.01"
+                                min="0"
+                                required>
+
+                    </div>
+
+
+                    <!-- Merchant Reference -->
+
+                    <div class="form-group">
+
+                        <label for="fldMerchRefNbr">
+                            Merchant Reference
+                        </label>
+
+                        <input
+                                type="text"
+                                id="fldMerchRefNbr"
+                                name="fldMerchRefNbr"
+                                value="A123401"
+                                readonly>
+
+                    </div>
+
+
+                    <!-- Sub Merchant -->
+
+                    <div class="form-group">
+
+                        <label for="fldRef2">
+                            Sub Merchant
+                        </label>
+
+                        <select
+                                id="fldRef2"
+                                name="fldRef2"
+                                required>
+
+                            <option value="SUB123">
+                                SUB123
+                            </option>
+
+                        </select>
+
+                    </div>
+
+
+                    <!-- Client Account -->
+
+                    <div class="form-group">
+
+                        <label for="fldClientAcctNo">
+                            Client Account
+                        </label>
+
+                        <select
+                                id="fldClientAcctNo"
+                                name="fldClientAcctNo"
+                                required>
+
+                            <option value="22222">
+                                22222
+                            </option>
+
+                        </select>
+
+                    </div>
+                    <!-- Return URL -->
+
+                    <div class="form-group full-width">
+
+                        <label for="ru">
+                            Return URL
+                        </label>
+
+                        <input
+                                type="url"
+                                id="ru"
+                                name="ru"
+                                value="https://www.billdesk.com"
+                                readonly>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- Payment Action -->
+
+            <div class="payment-actions">
+
+                <button
+                        type="submit"
+                        id="payButton"
+                        class="primary-button">
+
+                    Pay
+
+                </button>
+
+            </div>
+
+        </form>
+
+
+        <!-- Payment Result -->
+
+        <section
+                id="paymentResult"
+                class="payment-result"
+                hidden>
+
+        </section>
+
+    </section>
+
+</main>
+
+
+<footer class="footer">
+
+        <span>
+            BillDesk Payment Gateway Simulator
+        </span>
+
+    <span>
+            Demo Environment
+        </span>
+
+</footer>
+
+
+<!-- IMPORTANT: load app.js after the HTML -->
+
+<script src="/app.js"></script>
+
+</body>
+
+</html>

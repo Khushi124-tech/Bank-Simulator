@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0">
+
+    <title>Bank Simulator</title>
+
+    <link
+            rel="stylesheet"
+            href="/bank-style.css">
+
+</head>
+
+<body>
+
+<header class="bank-header">
+
+    <div class="bank-brand">
+        <h1>YES BANK</h1>
+        <p>Bank Payment Simulator</p>
+    </div>
+
+    <div class="secure-label">
+        Test Environment
+    </div>
+
+</header>
+
+
+<main class="bank-container">
+
+    <section class="payment-card">
+
+
+        <!-- =========================
+             Heading
+             ========================= -->
+
+        <div class="payment-heading">
+
+            <span class="section-label">
+                INCOMING PAYMENT
+            </span>
+
+            <h1>
+                Bank Transaction Control
+            </h1>
+
+            <p>
+                Review the incoming BillDesk transaction
+                and select the bank response to process.
+            </p>
+
+        </div>
+
+
+        <!-- =========================
+             Transaction Details
+             ========================= -->
+
+        <div class="transaction-details">
+
+            <div class="detail-row">
+                <span>PID</span>
+
+                <strong id="pid">
+                    —
+                </strong>
+            </div>
+
+
+            <div class="detail-row">
+                <span>Client Code</span>
+
+                <strong id="clientCode">
+                    —
+                </strong>
+            </div>
+
+
+            <div class="detail-row">
+                <span>Merchant Code</span>
+
+                <strong id="merchantCode">
+                    —
+                </strong>
+            </div>
+
+
+            <div class="detail-row">
+                <span>Customer Account</span>
+
+                <strong id="accountNumber">
+                    —
+                </strong>
+            </div>
+
+
+            <div class="detail-row">
+                <span>Currency</span>
+
+                <strong id="currency">
+                    —
+                </strong>
+            </div>
+
+
+            <div class="detail-row amount-row">
+                <span>Transaction Amount</span>
+
+                <strong id="transactionAmount">
+                    ₹0.00
+                </strong>
+            </div>
+
+
+            <div class="detail-row">
+                <span>Service Amount</span>
+
+                <strong id="serviceAmount">
+                    ₹0.00
+                </strong>
+            </div>
+
+
+            <div class="detail-row total-row">
+                <span>Total Debit</span>
+
+                <strong id="totalDebit">
+                    ₹0.00
+                </strong>
+            </div>
+
+
+            <div class="detail-row">
+                <span>Merchant Reference</span>
+
+                <strong id="merchantReference">
+                    —
+                </strong>
+            </div>
+
+
+            <div class="detail-row">
+                <span>Transaction Date/Time</span>
+
+                <strong id="transactionDateTime">
+                    —
+                </strong>
+            </div>
+
+        </div>
+
+
+        <!-- =========================
+             Validation Status
+             ========================= -->
+
+        <div class="balance-section">
+
+            <span>
+                Transaction Validation
+            </span>
+
+            <strong id="validationStatus">
+                Waiting for transaction
+            </strong>
+
+        </div>
+
+
+        <!-- =========================
+             Payment Processing
+             ========================= -->
+
+        <div class="simulation-section">
+
+            <div class="section-label">
+                BANK RESPONSE
+            </div>
+
+            <label for="scenario">
+                Select payment response
+            </label>
+
+            <select id="scenario">
+
+                <option value="SUCCESS">
+                    Successful Payment
+                </option>
+
+                <option value="INVALID_ACCOUNT">
+                    Invalid Account
+                </option>
+
+                <option value="INSUFFICIENT_FUNDS">
+                    Insufficient Funds
+                </option>
+
+                <option value="INVALID_PID">
+                    Invalid PID
+                </option>
+
+                <option value="INVALID_CHECKSUM">
+                    Invalid Checksum
+                </option>
+
+                <option value="INVALID_CURRENCY">
+                    Invalid Currency
+                </option>
+
+            </select>
+
+        </div>
+
+
+        <!-- =========================
+             Action
+             ========================= -->
+
+        <div class="payment-actions">
+
+            <button
+                    type="button"
+                    id="processPaymentButton"
+                    class="primary-button">
+
+                PROCESS PAYMENT
+
+            </button>
+
+        </div>
+
+
+        <!-- =========================
+             Result
+             ========================= -->
+
+        <div
+                id="paymentResult"
+                class="payment-result">
+        </div>
+
+
+    </section>
+
+</main>
+
+
+<script src="/bank-payment.js"></script>
+
+</body>
+
+</html>
