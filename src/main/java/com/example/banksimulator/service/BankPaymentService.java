@@ -421,25 +421,55 @@ public class BankPaymentService {
                 "Merchant transaction successful"
         );
 
+        /*
+         * =========================================================
+         * REGISTER COMPLETED TRANSACTION
+         * =========================================================
+         */
+
         dualVerificationService.registerCompletedTransaction(
                 response
         );
+
 
         /*
          * =========================================================
          * DUAL VERIFICATION
          * =========================================================
          *
-         * In the real architecture this would represent the
-         * Gateway/Bank verification communication.
-         *
-         * In our simulator it is an internal method call.
+         * The Bank verifies the transaction against the
+         * transaction it actually completed.
          */
 
         var verificationResult =
                 dualVerificationService.verify(
                         response
                 );
+
+
+        /*
+         * =========================================================
+         * VERIFICATION FAILED
+         * =========================================================
+         */
+
+        if (!verificationResult.isVerified()) {
+
+            response.setFlgSuccess("F");
+
+            response.setFldVerify("N");
+
+            response.setMessage(
+                    verificationResult.getMessage()
+            );
+
+            clearPendingTransaction();
+
+            return response;
+        }
+
+
+
 
 
         /*

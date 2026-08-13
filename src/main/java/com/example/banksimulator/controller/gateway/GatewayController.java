@@ -24,7 +24,7 @@ public class GatewayController {
      * This is NOT entered by the customer.
      */
     private static final String RETURN_URL =
-            "http://localhost:9090/payment/result";
+            "http://localhost:9090/";
 
 
     private final PaymentService paymentService;

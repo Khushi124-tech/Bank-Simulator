@@ -212,6 +212,12 @@ public class DualVerificationService {
          * =====================================================
          */
 
+        receivedResponse.setFldVerify("V");
+
+        receivedResponse.setMessage(
+                "Merchant transaction successful - Dual Verification successful"
+        );
+
         return new DualVerificationResult(
                 true,
                 "Dual verification successful"
