@@ -260,35 +260,71 @@ function displayPaymentResult(result) {
             result.flgSuccess === "S" &&
             result.fldVerify === "V";
 
-        const reference = result.bankRefNo || "N/A";
-        const transactionAmount = Number(result.fldTxnAmt || 0);
-        const serviceAmount = Number(result.fldTxnScAmt || 0);
-        const totalDebit = transactionAmount + serviceAmount;
-
         const paymentResult =
             document.getElementById("paymentResult");
 
         paymentResult.hidden = false;
 
+        if (!success) {
+                /*
+                 * =====================================================
+                 * FAILURE RESULT
+                 * =====================================================
+                 *
+                 * A failed transaction never debits the account, so
+                 * we deliberately do NOT repeat financial details
+                 * here (Transaction Amount / Service Amount /
+                 * Total Debit / Bank Reference). Those already remain
+                 * visible in the "Incoming Payment" section above.
+                 *
+                 * We just show a clear Status + Reason.
+                 */
+                paymentResult.innerHTML = `
+            <div class="payment-error">
+                <h3>Payment Failed</h3>
+
+                <p>
+                    <span>Status</span>
+                    FAILED
+                </p>
+
+                <p>
+                    <span>Reason</span>
+                    ${escapeHtml(result.message || "N/A")}
+                </p>
+            </div>
+        `;
+
+                return;
+        }
+
+        /*
+         * =========================================================
+         * SUCCESS RESULT (fallback display)
+         * =========================================================
+         *
+         * In the normal flow, a verified success is intercepted by
+         * processPayment() before this function is called, and the
+         * user is redirected to BillDesk instead. This branch is a
+         * fallback in case that redirect doesn't happen.
+         */
+        const reference = result.bankRefNo || "N/A";
+        const transactionAmount = Number(result.fldTxnAmt || 0);
+        const serviceAmount = Number(result.fldTxnScAmt || 0);
+        const totalDebit = transactionAmount + serviceAmount;
+
         paymentResult.innerHTML = `
-        <div class="${success ? "payment-success" : "payment-error"}">
-            <h3>
-                ${success ? "Payment Successful" : "Payment Failed"}
-            </h3>
+        <div class="payment-success">
+            <h3>Payment Successful</h3>
 
             <p>
                 <span>Status</span>
-                ${escapeHtml(result.flgSuccess || "N/A")}
+                SUCCESS
             </p>
 
             <p>
                 <span>Dual Verification</span>
-                ${escapeHtml(result.fldVerify || "N/A")}
-            </p>
-
-            <p>
-                <span>Message</span>
-                ${escapeHtml(result.message || "N/A")}
+                VERIFIED
             </p>
 
             <p>

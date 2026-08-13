@@ -316,11 +316,42 @@ public class BankPaymentService {
                 pendingTransaction;
 
         /*
-         * For an actual SUCCESS simulation,
-         * perform the real bank validations.
+         * =========================================================
+         * INCOMING TRANSACTION VALIDATION (ERROR PLAN - CATEGORY A)
+         * =========================================================
+         *
+         * These are the bank's own processing validations
+         * (account, PID, checksum, currency, amount rules,
+         * merchant fields, balance, etc).
+         *
+         * IMPORTANT:
+         * A validation failure here must NOT throw all the way up
+         * to the controller (which would produce a raw HTTP 500).
+         * It must be converted into a normal FAILED PaymentResponse
+         * so the UI can show:
+         *
+         *   Payment Failed
+         *   Status: FAILED
+         *   Reason: <validation message>
+         *
+         * No debit happens in this path.
          */
 
-        validateBankRules(request);
+        try {
+
+            validateBankRules(request);
+
+        } catch (IllegalArgumentException e) {
+
+            System.out.println(
+                    "Incoming transaction validation failed: "
+                            + e.getMessage()
+            );
+
+            return createFailureResponse(
+                    e.getMessage()
+            );
+        }
 
         BigDecimal totalDebit =
                 calculateTotalDebit(request);
@@ -469,32 +500,6 @@ public class BankPaymentService {
         }
 
 
-
-
-
-        /*
-         * =========================================================
-         * VERIFICATION FAILED
-         * =========================================================
-         *
-         * Do not allow the UI to show SUCCESS if verification
-         * fails.
-         */
-
-        if (!verificationResult.isVerified()) {
-
-            response.setFlgSuccess("F");
-
-            response.setMessage(
-                    verificationResult.getMessage()
-            );
-
-            clearPendingTransaction();
-
-            return response;
-        }
-
-
         /*
          * =========================================================
          * VERIFICATION SUCCESSFUL
@@ -611,7 +616,7 @@ public class BankPaymentService {
                         : BigDecimal.ZERO;
         return txnAmount.add(serviceAmount);
     }
-        /*
+    /*
      * =========================================================
      * BANK BUSINESS VALIDATION
      * =========================================================
@@ -646,6 +651,30 @@ public class BankPaymentService {
 
             throw new IllegalArgumentException(
                     "Transaction amount must be greater than zero"
+            );
+        }
+
+        /*
+         * Service amount cannot be negative
+         */
+        if (request.getFldTxnScAmt() != null &&
+                request.getFldTxnScAmt()
+                        .compareTo(BigDecimal.ZERO) < 0) {
+
+            throw new IllegalArgumentException(
+                    "Service amount cannot be negative"
+            );
+        }
+
+        /*
+         * Service amount cannot exceed transaction amount
+         */
+        if (request.getFldTxnScAmt() != null &&
+                request.getFldTxnScAmt()
+                        .compareTo(request.getFldTxnAmt()) > 0) {
+
+            throw new IllegalArgumentException(
+                    "Service amount cannot be more than transaction amount"
             );
         }
 

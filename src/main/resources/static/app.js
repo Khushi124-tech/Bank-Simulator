@@ -278,6 +278,14 @@ function showFinalSuccessPopup(data) {
                     </div>
 
                     <div>
+                        <span>Total Debit</span>
+                        <strong>₹${formatAmount(
+        (Number(data.transactionAmount) || 0) +
+        (Number(data.serviceAmount) || 0)
+    )}</strong>
+                    </div>
+
+                    <div>
                         <span>Merchant Reference</span>
                         <strong>${escapeHtml(data.merchantReference || "N/A")}</strong>
                     </div>
