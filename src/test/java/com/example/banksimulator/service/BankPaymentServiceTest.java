@@ -23,6 +23,9 @@ class BankPaymentServiceTest {
     private final EpiTransactionBuilder transactionBuilder =
             new EpiTransactionBuilder();
 
+    private final EpiResponseBuilder epiResponseBuilder =
+            new EpiResponseBuilder();
+
     private final DualVerificationService dualVerificationService =
             new DualVerificationService();
 
@@ -31,7 +34,8 @@ class BankPaymentServiceTest {
                     encryptionService,
                     checksumService,
                     transactionParser,
-                    dualVerificationService
+                    dualVerificationService,
+                    epiResponseBuilder
             );
 
     private static final String PID =
@@ -292,13 +296,25 @@ class BankPaymentServiceTest {
 
 
         /*
-         * SUCCESS processing performs actual
-         * bank validation.
+         * SUCCESS processing performs actual bank validation -
+         * an unknown account must be rejected, not accepted.
+         *
+         * (This test previously asserted "S" here, which is
+         * incorrect: it was checking that account validation
+         * happened at all, not that it actually rejected an
+         * invalid account. That gave a false sense of safety -
+         * the test passed even though nothing was really being
+         * verified.)
          */
 
         assertEquals(
-                "S",
+                "F",
                 response.getFlgSuccess()
+        );
+
+        assertEquals(
+                "Invalid customer account",
+                response.getMessage()
         );
     }
 
@@ -628,6 +644,208 @@ class BankPaymentServiceTest {
                                 PID,
                                 encdata
                         )
+        );
+    }
+
+
+    /*
+     * =========================================================
+     * PER-TRANSACTION LIMIT
+     * =========================================================
+     *
+     * A single transaction whose principal amount alone exceeds
+     * the per-transaction limit must be rejected, even though
+     * the account balance (1,000,000.00) could easily cover it.
+     */
+
+    @Test
+    void shouldRejectWhenPerTransactionLimitExceeded() {
+
+        PaymentRequest request =
+                validRequest();
+
+        request.setFldTxnAmt(
+                new BigDecimal("960000.00")
+        );
+
+        request.setFldTxnScAmt(
+                new BigDecimal("0.00")
+        );
+
+        String encdata =
+                createEncdata(request);
+
+        bankPaymentService.receiveTransaction(
+                PID,
+                encdata
+        );
+
+        PaymentResponse response =
+                bankPaymentService.processSimulation(
+                        "SUCCESS"
+                );
+
+        assertEquals(
+                "F",
+                response.getFlgSuccess()
+        );
+
+        assertEquals(
+                "Transaction amount exceeds per-transaction limit",
+                response.getMessage()
+        );
+    }
+
+
+    /*
+     * =========================================================
+     * DAILY LIMIT
+     * =========================================================
+     *
+     * Two separate transactions, each individually well within
+     * balance and within the per-transaction limit, but whose
+     * CUMULATIVE total crosses the daily limit. This is what
+     * distinguishes a daily limit from a balance check - the
+     * second transaction is declined purely because of what
+     * already happened earlier the same day, not because of
+     * anything wrong with the second transaction itself.
+     */
+
+    @Test
+    void shouldRejectWhenDailyLimitExceeded() {
+
+        PaymentRequest firstRequest =
+                validRequest();
+
+        String firstEncdata =
+                createEncdata(firstRequest);
+
+        bankPaymentService.receiveTransaction(
+                PID,
+                firstEncdata
+        );
+
+        PaymentResponse firstResponse =
+                bankPaymentService.processSimulation(
+                        "SUCCESS"
+                );
+
+        assertEquals(
+                "S",
+                firstResponse.getFlgSuccess()
+        );
+
+        /*
+         * Second transaction: different merchant reference
+         * (so it isn't caught by the duplicate guard instead),
+         * small amount, well within the remaining balance -
+         * but pushes the day's cumulative total over the limit.
+         */
+
+        PaymentRequest secondRequest =
+                validRequest();
+
+        secondRequest.setFldMerchRefNbr(
+                "A123402"
+        );
+
+        secondRequest.setFldTxnAmt(
+                new BigDecimal("5000.00")
+        );
+
+        secondRequest.setFldTxnScAmt(
+                new BigDecimal("0.00")
+        );
+
+        String secondEncdata =
+                createEncdata(secondRequest);
+
+        bankPaymentService.receiveTransaction(
+                PID,
+                secondEncdata
+        );
+
+        PaymentResponse secondResponse =
+                bankPaymentService.processSimulation(
+                        "SUCCESS"
+                );
+
+        assertEquals(
+                "F",
+                secondResponse.getFlgSuccess()
+        );
+
+        assertEquals(
+                "Daily transaction limit exceeded",
+                secondResponse.getMessage()
+        );
+    }
+
+
+    /*
+     * =========================================================
+     * DUPLICATE TRANSACTION
+     * =========================================================
+     *
+     * Once a merchant reference has been successfully processed,
+     * the bank must refuse to process it again - even in a brand
+     * new incoming transaction with a valid checksum and PID.
+     */
+
+    @Test
+    void shouldRejectDuplicateMerchantReference() {
+
+        PaymentRequest request =
+                validRequest();
+
+        String encdata =
+                createEncdata(request);
+
+        bankPaymentService.receiveTransaction(
+                PID,
+                encdata
+        );
+
+        PaymentResponse firstResponse =
+                bankPaymentService.processSimulation(
+                        "SUCCESS"
+                );
+
+        assertEquals(
+                "S",
+                firstResponse.getFlgSuccess()
+        );
+
+        /*
+         * Same merchant reference ("A123401" from validRequest())
+         * submitted again as a brand new transaction.
+         */
+
+        PaymentRequest duplicateRequest =
+                validRequest();
+
+        String duplicateEncdata =
+                createEncdata(duplicateRequest);
+
+        bankPaymentService.receiveTransaction(
+                PID,
+                duplicateEncdata
+        );
+
+        PaymentResponse duplicateResponse =
+                bankPaymentService.processSimulation(
+                        "SUCCESS"
+                );
+
+        assertEquals(
+                "F",
+                duplicateResponse.getFlgSuccess()
+        );
+
+        assertEquals(
+                "Duplicate transaction - merchant reference "
+                        + "already processed",
+                duplicateResponse.getMessage()
         );
     }
 }

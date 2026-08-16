@@ -17,7 +17,8 @@ class BankPaymentControllerTest {
                         null,
                         null,
                         null,
-                        new DualVerificationService()
+                        new DualVerificationService(),
+                        null
                 );
 
         BankPaymentController controller =

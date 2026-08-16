@@ -26,6 +26,14 @@ public class PaymentResponse {
 
     private String message;
 
+    /*
+     * Encrypted representation of this response (raw EPI string
+     * + checksum, AES encrypted) - the same shape the bank would
+     * POST to the gateway's S2S callback endpoint
+     * (/payment/result) in a real integration.
+     */
+    private String encdata;
+
     public String getFldClientCode() {
         return fldClientCode;
     }
@@ -120,5 +128,13 @@ public class PaymentResponse {
 
     public void setMessage(String message) {
         this.message = message;
+    }
+
+    public String getEncdata() {
+        return encdata;
+    }
+
+    public void setEncdata(String encdata) {
+        this.encdata = encdata;
     }
 }

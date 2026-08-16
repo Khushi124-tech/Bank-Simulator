@@ -1,16 +1,16 @@
 package com.example.banksimulator.controller.gateway;
 
 import com.example.banksimulator.model.BankPaymentRequest;
-import com.example.banksimulator.model.GatewayPaymentResponse;
 import com.example.banksimulator.model.PaymentRequest;
 import com.example.banksimulator.service.BankPaymentService;
 import com.example.banksimulator.service.PaymentService;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/gateway")
 public class GatewayController {
+
+    private static final String BANK_ID = "YBM";
 
     private static final String BANK_PID =
             "PID_XYZ_001";
@@ -18,8 +18,14 @@ public class GatewayController {
     private static final String BANK_ENCRYPTION_KEY =
             "BILL#1234";
 
-    private static final String BANK_URL =
-            "/bank/simulator";
+    /*
+     * Fixed simulator return URL.
+     *
+     * This is NOT entered by the customer.
+     */
+    private static final String RETURN_URL =
+            "http://localhost:9090/";
+
 
     private final PaymentService paymentService;
 
@@ -39,114 +45,152 @@ public class GatewayController {
 
 
     @PostMapping("/payment")
-    public ResponseEntity<?> processPayment(
+    public Object processPayment(
             @RequestBody PaymentRequest request) {
 
-        try {
-
-            /*
-             * 1. Gateway creates EPI transaction,
-             *    checksum and encrypted encdata.
-             */
-            String encdata =
-                    paymentService.preparePayment(
-                            request,
-                            BANK_ENCRYPTION_KEY
-                    );
-
-
-            /*
-             * 2. Create Bank request.
-             */
-            BankPaymentRequest bankRequest =
-                    new BankPaymentRequest();
-
-            bankRequest.setPid(BANK_PID);
-            bankRequest.setEncdata(encdata);
+        /*
+         * =====================================================
+         * FIXED GATEWAY CONFIGURATION
+         * =====================================================
+         *
+         * The customer does not provide RU.
+         *
+         * The Gateway supplies it.
+         */
+        request.setBankid(BANK_ID);
+        request.setRu(RETURN_URL);
 
 
-            /*
-             * 3. Bank receives the transaction.
-             *
-             * IMPORTANT:
-             * This only creates a PENDING transaction.
-             * No debit happens here.
-             */
-            PaymentRequest pendingTransaction =
-                    bankPaymentService.receiveTransaction(
-                            bankRequest.getPid(),
-                            bankRequest.getEncdata()
-                    );
+        /*
+         * =====================================================
+         * 1. CREATE ENCRYPTED TRANSACTION
+         * =====================================================
+         */
+
+        String encdata =
+                paymentService.preparePayment(
+                        request,
+                        BANK_ENCRYPTION_KEY
+                );
 
 
-            /*
-             * 4. Return Bank Simulator URL.
-             */
-            GatewayPaymentResponse response =
-                    new GatewayPaymentResponse(
-                            BANK_URL,
-                            BANK_PID,
-                            "PENDING",
-                            pendingTransaction
-                    );
+        /*
+         * =====================================================
+         * 2. CREATE BANK REQUEST
+         * =====================================================
+         */
 
+        BankPaymentRequest bankRequest =
+                new BankPaymentRequest();
 
-            return ResponseEntity.ok(response);
+        bankRequest.setPid(BANK_PID);
 
+        bankRequest.setEncdata(encdata);
 
-        } catch (IllegalArgumentException e) {
+        /*
+         * =====================================================
+         * GATEWAY -> BANK URL (EDUCATIONAL / DEBUG TRACE)
+         * =====================================================
+         *
+         * In a real BillDesk-style integration, the browser is
+         * redirected to the bank's payment page carrying PID and
+         * encdata as query parameters, e.g.:
+         *
+         *   https://<bank-host>/pay?PID=<pid>&encdata=<encrypted>
+         *
+         * This simulator hands the same two values directly to
+         * BankPaymentService as an in-process call instead of a
+         * real HTTP redirect, but we log the equivalent URL so
+         * the shape of a real integration is visible.
+         */
+        String bankRequestUrl =
+                "https://www.returnurl.com?PID="
+                        + BANK_PID
+                        + "&encdata="
+                        + encdata;
 
-            return ResponseEntity
-                    .badRequest()
-                    .body(
-                            new GatewayErrorResponse(
-                                    "FAILED",
-                                    e.getMessage()
-                            )
-                    );
+        System.out.println(
+                "[GATEWAY] Handing off to Bank as:"
+        );
+        System.out.println(
+                bankRequestUrl
+        );
 
-        } catch (Exception e) {
+        /*
+         * =====================================================
+         * 3. SEND TO BANK RECEIVE STAGE
+         * =====================================================
+         *
+         * This does NOT debit the account.
+         *
+         * It creates a pending transaction.
+         */
 
-            return ResponseEntity
-                    .internalServerError()
-                    .body(
-                            new GatewayErrorResponse(
-                                    "FAILED",
-                                    "Unable to initiate payment"
-                            )
-                    );
-        }
-    }
-
-
-    /*
-     * =========================================================
-     * GATEWAY ERROR RESPONSE
-     * =========================================================
-     */
-
-    private static class GatewayErrorResponse {
-
-        private String status;
-        private String message;
-
-
-        public GatewayErrorResponse(
-                String status,
-                String message) {
-
-            this.status = status;
-            this.message = message;
-        }
-
-
-        public String getStatus() {
-            return status;
-        }
-
-
-        public String getMessage() {
-            return message;
-        }
+        return bankPaymentService.receiveTransaction(
+                bankRequest.getPid(),
+                bankRequest.getEncdata()
+        );
     }
 }
+
+/*
+What it does?
+Flowcharts
+                 CUSTOMER / CLIENT
+                        │
+                        │ POST /gateway/payment
+                        │
+                        │ PaymentRequest
+                        ▼
+              ┌─────────────────────┐
+              │   GatewayController  │
+              │                     │
+              │  processPayment()   │
+              └──────────┬──────────┘
+                         │
+                         │ 1. Add fixed information
+                         │    bankid = YBM
+                         │    ru = localhost:9090
+                         ▼
+              ┌─────────────────────┐
+              │   PaymentRequest    │
+              │                     │
+              │ customer data       │
+              │ bankid               │
+              │ ru                   │
+              └──────────┬──────────┘
+                         │
+                         │ 2. Send request
+                         │    to PaymentService
+                         ▼
+              ┌─────────────────────┐
+              │   PaymentService    │
+              │                     │
+              │ preparePayment()    │
+              └──────────┬──────────┘
+                         │
+                         │ encrypted transaction
+                         ▼
+                    "encdata"
+                         │
+                         │
+                         ▼
+              ┌─────────────────────┐
+              │ BankPaymentRequest  │
+              │                     │
+              │ PID = PID_XYZ_001   │
+              │ encdata = encrypted │
+              └──────────┬──────────┘
+                         │
+                         │ 3. Send PID + encdata
+                         ▼
+              ┌─────────────────────┐
+              │ BankPaymentService  │
+              │                     │
+              │ receiveTransaction()│
+              └──────────┬──────────┘
+                         │
+                         │ creates pending transaction
+                         ▼
+                  PaymentResponse
+ */

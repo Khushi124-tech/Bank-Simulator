@@ -136,22 +136,39 @@ public class GatewayCallbackController {
          */
 
         System.out.println(
-                "S2S callback received"
+                "========================================"
+        );
+        System.out.println(
+                "[GATEWAY] S2S callback received on /payment/result"
         );
 
         System.out.println(
-                "Merchant Reference: "
+                "[GATEWAY] Encrypted (encdata):"
+        );
+        System.out.println(
+                encdata
+        );
+
+        System.out.println(
+                "[GATEWAY] Merchant Reference: "
                         + response.getFldMerchRefNbr()
         );
 
         System.out.println(
-                "Bank Reference: "
+                "[GATEWAY] Bank Reference: "
                         + response.getBankRefNo()
         );
 
         System.out.println(
-                "Success: "
+                "[GATEWAY] Success: "
                         + response.getFlgSuccess()
+        );
+        System.out.println(
+                "[GATEWAY] Dual Verification: "
+                        + response.getFldVerify()
+        );
+        System.out.println(
+                "========================================"
         );
 
         /*

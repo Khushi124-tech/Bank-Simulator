@@ -160,7 +160,8 @@ async function processPayment() {
                         showProcessingState();
 
                         /* UI-only 3 second verification animation. */
-                        setTimeout(() => {
+                        setTimeout(async () => {
+                                await sendS2SCallback(data);
                                 redirectToBillDesk(data);
                         }, 3000);
 
@@ -183,6 +184,59 @@ async function processPayment() {
 
                 button.disabled = false;
                 button.textContent = "PROCESS PAYMENT";
+        }
+}
+
+/* =========================================================
+ * S2S CALLBACK TO GATEWAY
+ * =========================================================
+ *
+ * Before returning the browser to BillDesk, the Bank posts its
+ * encrypted, checksummed result to the Gateway's real S2S
+ * callback endpoint - the same /payment/result the Gateway
+ * would receive directly from the bank's servers in a real
+ * integration.
+ *
+ * This is a real network request: open DevTools -> Network ->
+ * click "result" -> "Payload" tab to see the actual encdata
+ * body being sent, and "Response" to see what the Gateway did
+ * with it (it decrypts, verifies the checksum, parses the EPI
+ * response, and logs it server-side - check the Spring Boot
+ * console for the "[GATEWAY] S2S callback received" trace).
+ */
+async function sendS2SCallback(data) {
+        if (!data.encdata) {
+                console.warn(
+                    "No encdata on response - skipping S2S callback"
+                );
+                return;
+        }
+
+        try {
+                const response = await fetch("/payment/result", {
+                        method: "POST",
+                        headers: {
+                                "Content-Type":
+                                    "application/x-www-form-urlencoded"
+                        },
+                        body: new URLSearchParams({
+                                encdata: data.encdata
+                        }).toString()
+                });
+
+                const text = await response.text();
+
+                console.log(
+                    "S2S callback to /payment/result:",
+                    response.status,
+                    text
+                );
+
+        } catch (error) {
+                console.error(
+                    "S2S callback failed:",
+                    error
+                );
         }
 }
 
@@ -216,15 +270,23 @@ function redirectToBillDesk(result) {
          * RETURN TO BILLDESK
          * =====================================================
          *
-         * The Bank Simulator and BillDesk simulator run from the
-         * same application/host in this project.
+         * A real bank redirect sends the customer's browser back
+         * to the SAME tab/window that started the checkout - not
+         * a brand new one. This tab (the Bank Simulator) was
+         * opened via window.open() from the BillDesk page, so
+         * window.opener still points back at that original tab.
          *
-         * We therefore redirect the current Bank Simulator window
-         * directly to the BillDesk root page instead of depending
-         * on window.opener.
+         * Preferred:  navigate window.opener (the original
+         *             BillDesk tab) to the result, then close
+         *             this Bank Simulator tab - the customer ends
+         *             up back where they started, exactly like a
+         *             real redirect.
          *
-         * This is intentionally a simple simulator representation
-         * of the bank returning the verified result to BillDesk.
+         * Fallback:   if window.opener isn't available (blocked,
+         *             already closed, or the Bank Simulator was
+         *             opened directly rather than via Pay), this
+         *             tab becomes the result page instead so the
+         *             flow still completes.
          */
 
         const returnUrl = new URL("/", window.location.origin);
@@ -243,12 +305,47 @@ function redirectToBillDesk(result) {
             returnUrl.toString()
         );
 
+        if (window.opener && !window.opener.closed) {
+
+                window.opener.location.href = returnUrl.toString();
+                window.opener.focus();
+
+                showReturnedToBillDeskState();
+
+                /*
+                 * Give the opener a moment to start navigating
+                 * before closing this tab.
+                 */
+                setTimeout(() => {
+                        window.close();
+                }, 400);
+
+                return;
+        }
+
         /*
-         * The current Bank Simulator window becomes the BillDesk
-         * result page. BillDesk's app.js reads the query parameters
-         * and displays the final success popup.
+         * No opener available - this tab becomes the BillDesk
+         * result page itself.
          */
         window.location.assign(returnUrl.toString());
+}
+
+function showReturnedToBillDeskState() {
+        const paymentResult =
+            document.getElementById("paymentResult");
+
+        paymentResult.hidden = false;
+
+        paymentResult.innerHTML = `
+        <div class="payment-success">
+            <h3>Payment Successful</h3>
+            <p>
+                Returning to BillDesk. This tab will close
+                automatically - if it doesn't, you can close it
+                yourself.
+            </p>
+        </div>
+    `;
 }
 
 /* =========================================================
