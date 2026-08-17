@@ -2,34 +2,27 @@
  * BILLDESK PAYMENT PAGE
  * ========================================================= */
 
-const PAYMENT_CONFIG = {
-    clientCode: "Amazon",
-    merchantCode: "Merch1",
-    currency: "INR",
-    subMerchant: "SUB123",
-    clientAccount: "22222",
-    bankId: "YBM",
-    returnUrl: window.location.origin + "/"
-};
-
 const paymentForm = document.getElementById("paymentForm");
 const paymentResult = document.getElementById("paymentResult");
 const payButton = document.getElementById("payButton");
 const transactionAmountInput = document.getElementById("fldTxnAmt");
 const serviceAmountInput = document.getElementById("fldTxnScAmt");
+const merchantReferenceInput = document.getElementById("fldMerchRefNbr");
+const dateTimeInput = document.getElementById("fldDatTimeTxn");
+
+const BANK_WINDOW_NAME = "bankSimulatorWindow";
 
 /*
  * =========================================================
  * ONE PAYMENT ATTEMPT PER PAGE LOAD
  * =========================================================
  *
- * Once a transaction has actually reached the Bank Simulator
- * (the /gateway/payment call succeeded), this page must not be
- * able to send another one - not via a second click, and not
- * via the browser Back button returning to this same loaded
- * page. A genuinely new payment requires a fresh page load,
- * which is also what generates a fresh transaction reference
- * below.
+ * Once a transaction has actually been submitted to the
+ * Gateway, this page must not be able to send another one -
+ * not via a second click, and not via the browser Back button
+ * returning to this same loaded page. A genuinely new payment
+ * requires a fresh page load, which is also what generates a
+ * fresh transaction reference below.
  */
 let transactionAlreadySent = false;
 
@@ -50,10 +43,27 @@ function generateMerchantReference() {
     return `TXN${timestamp}${random}`;
 }
 
-paymentForm.addEventListener("submit", async function (event) {
-    event.preventDefault();
+/*
+ * =========================================================
+ * REAL FORM SUBMISSION - NOT fetch()
+ * =========================================================
+ *
+ * This listener does NOT call event.preventDefault() on the
+ * happy path. It only validates and fills in the last couple
+ * of hidden fields; the actual send is the browser's own native
+ * form submission straight to /gateway/payment - a real POST
+ * you can inspect in DevTools -> Network, not a background
+ * fetch() call.
+ *
+ * The form's target="bankSimulatorWindow" attribute sends the
+ * response into the SAME tab we open below (matched by name),
+ * so this BillDesk tab itself never navigates away.
+ */
+paymentForm.addEventListener("submit", function (event) {
 
     if (transactionAlreadySent) {
+        event.preventDefault();
+
         showPaymentError(
             "Payment Already Sent",
             "A payment has already been sent to the bank from this " +
@@ -62,189 +72,118 @@ paymentForm.addEventListener("submit", async function (event) {
         return;
     }
 
-    payButton.disabled = true;
-    payButton.textContent = "Sending to Bank...";
-    paymentResult.innerHTML = "";
-    paymentResult.hidden = true;
-
-    /*
-     * Open the Bank Simulator synchronously from the click.
-     * This preserves window.opener for the final redirect.
-     */
-    const bankWindow = window.open("about:blank", "_blank");
-
-    if (!bankWindow) {
-        showPaymentError(
-            "Unable to open Bank Simulator",
-            "Please allow pop-ups for this site and try again."
-        );
-        resetPayButton();
-        return;
-    }
-
     const transactionAmount = Number(transactionAmountInput.value);
     const serviceAmount = Number(serviceAmountInput.value);
 
     if (!Number.isFinite(transactionAmount) || transactionAmount <= 0) {
-        bankWindow.close();
+        event.preventDefault();
         showPaymentError(
             "Invalid Transaction Amount",
             "Transaction amount must be greater than zero."
         );
-        resetPayButton();
         return;
     }
 
     if (!Number.isFinite(serviceAmount) || serviceAmount < 0) {
-        bankWindow.close();
+        event.preventDefault();
         showPaymentError(
             "Invalid Service Amount",
             "Service amount cannot be negative."
         );
-        resetPayButton();
         return;
     }
 
-    /* Bank-side business rule: service amount cannot exceed transaction amount. */
     if (serviceAmount > transactionAmount) {
-        bankWindow.close();
+        event.preventDefault();
         showPaymentError(
             "Invalid Service Amount",
             "Service amount cannot be greater than the transaction amount."
         );
-        resetPayButton();
         return;
     }
 
+    /*
+     * Fill in the fields that must be fresh per attempt. This
+     * runs synchronously before the browser's default submit
+     * action, so the values are already in the form fields by
+     * the time the real POST goes out.
+     */
     const merchantReference = generateMerchantReference();
+    merchantReferenceInput.value = merchantReference;
+    dateTimeInput.value = getCurrentDateTime();
 
-    const paymentRequest = {
-        fldClientCode: PAYMENT_CONFIG.clientCode,
-        fldMerchCode: PAYMENT_CONFIG.merchantCode,
-        fldTxnCurr: PAYMENT_CONFIG.currency,
-        fldTxnAmt: transactionAmount,
-        fldTxnScAmt: serviceAmount,
-        fldMerchRefNbr: merchantReference,
-        fldDatTimeTxn: getCurrentDateTime(),
+    console.log(
+        "Submitting real form POST to /gateway/payment"
+    );
+    console.log(
+        "Transaction reference generated:", merchantReference
+    );
+    console.log(
+        "Open DevTools -> Network -> 'payment' -> Payload to see " +
+        "the actual form fields being sent."
+    );
 
-        fldRef1: "",
-        fldRef2: PAYMENT_CONFIG.subMerchant,
-        fldRef3: "",
-        fldRef4: "",
-        fldRef5: "",
-        fldRef6: "",
-        fldRef7: "",
-        fldRef8: "",
-        fldRef9: "",
-        fldRef10: "",
-        fldRef11: "",
-        fldDate1: "",
-        fldDate2: "",
+    /*
+     * Open (or reuse) the named window BEFORE the form submits,
+     * synchronously, in direct response to this click - this is
+     * what keeps popup blockers from stepping in. Its .opener
+     * will point back at this tab, which is what lets the Bank
+     * Simulator redirect the customer back here at the very end.
+     */
+    const bankWindow = window.open("about:blank", BANK_WINDOW_NAME);
 
-        ru: PAYMENT_CONFIG.returnUrl,
-        fldClientAcctNo: PAYMENT_CONFIG.clientAccount,
-        bankid: PAYMENT_CONFIG.bankId
-    };
-
-    console.log("Transaction reference generated:", merchantReference);
-    console.log("Sending payment request:", paymentRequest);
-
-    try {
-        const response = await fetch("/gateway/payment", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(paymentRequest)
-        });
-
-        if (!response.ok) {
-            let serverMessage = `HTTP ${response.status}`;
-
-            try {
-                const errorBody = await response.text();
-                if (errorBody) {
-                    serverMessage = errorBody;
-                }
-            } catch (ignored) {
-                // Keep HTTP status if response body cannot be read.
-            }
-
-            throw new Error(
-                `Unable to send payment to bank. ${serverMessage}`
-            );
-        }
-
-        const result = await response.json();
-
-        console.log("Gateway response:", result);
-
-        /*
-         * The transaction has now genuinely reached the bank.
-         * Lock this page - no further sends without a reload.
-         */
-        transactionAlreadySent = true;
-        payButton.disabled = true;
-        payButton.textContent = "Payment Sent — Reload To Pay Again";
-
-        /*
-         * Gateway has delivered the transaction to Bank RECEIVE.
-         * The bank page can now read /bank/pending.
-         */
-        if (bankWindow && !bankWindow.closed) {
-            bankWindow.location.href = "/bank/simulator";
-        }
-
-        displayPendingResult(result, merchantReference);
-
-    } catch (error) {
-        console.error("Payment submission error:", error);
-
-        if (bankWindow && !bankWindow.closed) {
-            bankWindow.close();
-        }
-
+    if (!bankWindow) {
+        event.preventDefault();
         showPaymentError(
-            "Payment Submission Failed",
-            error.message
+            "Unable to open Bank Simulator",
+            "Please allow pop-ups for this site and try again."
         );
-
-        /*
-         * The transaction never reached the bank, so it's safe
-         * to let the customer try again.
-         */
-        resetPayButton();
+        return;
     }
+
+    transactionAlreadySent = true;
+    payButton.disabled = true;
+    payButton.textContent = "Payment Sent — Reload To Pay Again";
+
+    displayPendingResult({
+        merchant: document.getElementById("fldMerchCode").value,
+        amount: transactionAmount,
+        reference: merchantReference
+    });
+
+    /*
+     * No event.preventDefault() here - the browser now performs
+     * its own real navigation of the "bankSimulatorWindow" tab
+     * to /gateway/payment.
+     */
 });
 
-function displayPendingResult(result, merchantReference) {
+function displayPendingResult(details) {
     paymentResult.hidden = false;
-
-    const request = result.request || result;
 
     paymentResult.innerHTML = `
         <div class="payment-pending">
             <h3>Payment Sent to Bank</h3>
 
             <p>
-                The transaction has been received by the Bank Simulator
-                and is awaiting processing.
+                The transaction has been submitted to the Gateway and
+                is being handed off to the bank in the new tab.
             </p>
 
             <div class="pending-details">
                 <p>
                     <strong>Merchant:</strong>
-                    ${escapeHtml(request.fldMerchCode || "N/A")}
+                    ${escapeHtml(details.merchant || "N/A")}
                 </p>
 
                 <p>
                     <strong>Amount:</strong>
-                    ₹${formatAmount(request.fldTxnAmt)}
+                    ₹${formatAmount(details.amount)}
                 </p>
 
                 <p>
                     <strong>Reference:</strong>
-                    ${escapeHtml(request.fldMerchRefNbr || merchantReference || "N/A")}
+                    ${escapeHtml(details.reference || "N/A")}
                 </p>
 
                 <p>
@@ -313,7 +252,20 @@ function showFinalSuccessPopup(data) {
     modal.innerHTML = `
         <div class="success-modal-overlay">
             <div class="success-modal">
-                <div class="success-icon">✓</div>
+                <div class="success-icon">
+                    <svg viewBox="0 0 66 66" class="success-icon-svg">
+                        <circle
+                            class="success-icon-ring"
+                            cx="33" cy="33" r="29"
+                            fill="none" stroke-width="3"/>
+                        <path
+                            class="success-icon-check"
+                            fill="none" stroke-width="4"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d="M20 34 L29 43 L47 23"/>
+                    </svg>
+                </div>
 
                 <h2>Payment Successful</h2>
 
@@ -352,7 +304,14 @@ function showFinalSuccessPopup(data) {
                 </div>
 
                 <div class="verification-badge">
-                    ✓ Dual Verification Completed
+                    <svg viewBox="0 0 16 16" class="verification-badge-icon">
+                        <path
+                            fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d="M3 8.5 L6.5 12 L13 4"/>
+                    </svg>
+                    Dual Verification Completed
                 </div>
 
                 <button type="button" onclick="closeFinalSuccessPopup()">

@@ -318,7 +318,7 @@ function redirectToBillDesk(result) {
                  */
                 setTimeout(() => {
                         window.close();
-                }, 400);
+                }, 3000);
 
                 return;
         }

@@ -448,3 +448,219 @@ body {
         padding: 0 16px 24px;
     }
 }
+
+
+/* =========================
+   Final Success Popup
+   (BillDesk return - genuinely
+   verified payment result)
+   ========================= */
+
+.success-modal-overlay {
+    position: fixed;
+    inset: 0;
+
+    background: rgba(10, 16, 38, 0.5);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    z-index: 1000;
+
+    padding: 16px;
+
+    animation: overlay-fade-in 0.25s ease-out;
+}
+
+.success-modal {
+    background: var(--surface);
+    border-radius: 18px;
+
+    max-width: 420px;
+    width: 100%;
+
+    padding: 36px 30px 28px;
+
+    text-align: center;
+
+    box-shadow:
+            0 30px 70px rgba(15, 23, 55, 0.28),
+            0 4px 14px rgba(15, 23, 55, 0.12);
+
+    animation: modal-pop-in 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* -------- animated checkmark -------- */
+
+.success-modal .success-icon {
+    width: 72px;
+    height: 72px;
+    margin: 0 auto 18px;
+}
+
+.success-icon-svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+.success-icon-ring {
+    stroke: var(--success);
+    stroke-dasharray: 182;
+    stroke-dashoffset: 182;
+    animation: ring-draw 0.5s ease-out forwards;
+}
+
+.success-icon-check {
+    stroke: var(--success);
+    stroke-dasharray: 34;
+    stroke-dashoffset: 34;
+    animation: check-draw 0.35s ease-out 0.45s forwards;
+}
+
+.success-modal h2 {
+    margin: 0 0 6px;
+    font-size: 21px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.01em;
+}
+
+.success-modal .success-subtitle {
+    margin: 0 0 22px;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.success-modal .success-details {
+    text-align: left;
+
+    border: 1px solid var(--border);
+    border-radius: 12px;
+
+    padding: 6px 16px;
+    margin-bottom: 18px;
+}
+
+.success-modal .success-details div {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    padding: 9px 0;
+
+    font-size: 13px;
+}
+
+.success-modal .success-details div:not(:last-child) {
+    border-bottom: 1px solid var(--border);
+}
+
+.success-modal .success-details span {
+    color: var(--muted);
+}
+
+.success-modal .success-details strong {
+    color: var(--text);
+    font-weight: 600;
+}
+
+/*
+ * The Dual Verification line - deliberately styled as its own
+ * distinct badge, not just another row in the details list.
+ * This is the one thing that ONLY appears when the bank's own
+ * verification actually matched (fldVerify === "V") - it earns
+ * a visually separate confirmation, not a quiet list item.
+ */
+.success-modal .verification-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+
+    background: var(--success-light);
+    color: var(--success);
+
+    font-size: 13px;
+    font-weight: 600;
+
+    border-radius: 999px;
+
+    padding: 8px 18px;
+    margin-bottom: 22px;
+}
+
+.verification-badge-icon {
+    width: 13px;
+    height: 13px;
+    flex-shrink: 0;
+}
+
+.success-modal button {
+    width: 100%;
+
+    background: var(--navy);
+    color: #fff;
+
+    border: none;
+    border-radius: 10px;
+
+    padding: 13px;
+
+    font-size: 14px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.success-modal button:hover {
+    background: var(--navy-dark);
+}
+
+.success-modal button:active {
+    transform: scale(0.98);
+}
+
+.success-modal button:focus-visible {
+    outline: 2px solid var(--navy);
+    outline-offset: 2px;
+}
+
+@keyframes overlay-fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+@keyframes modal-pop-in {
+    from {
+        opacity: 0;
+        transform: scale(0.92) translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+@keyframes ring-draw {
+    to { stroke-dashoffset: 0; }
+}
+
+@keyframes check-draw {
+    to { stroke-dashoffset: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .success-modal-overlay,
+    .success-modal,
+    .success-icon-ring,
+    .success-icon-check {
+        animation: none !important;
+        stroke-dashoffset: 0;
+    }
+}

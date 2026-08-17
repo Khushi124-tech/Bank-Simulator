@@ -68,8 +68,9 @@
 
         <form
                 id="paymentForm"
-                action="#"
-                method="post">
+                action="/gateway/payment"
+                method="post"
+                target="bankSimulatorWindow">
 
             <div class="form-section">
 
@@ -267,6 +268,16 @@
                 </div>
 
             </div>
+
+            <!--
+                Hidden fields - not user-editable, populated by
+                app.js immediately before the form is submitted.
+                Still real form fields though: they travel in the
+                actual POST body to /gateway/payment, visible in
+                DevTools -> Network -> Payload, just like every
+                other field above.
+            -->
+            <input type="hidden" id="fldDatTimeTxn" name="fldDatTimeTxn">
 
 
             <!-- Payment Action -->
